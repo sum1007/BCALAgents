@@ -1,0 +1,12 @@
+{
+  "domain": "integration",
+  "resourceRoot": "BCALResources/Integration",
+  "preferredAgent": "BC Integration Generation Assistant",
+  "subFolders": [
+    "APIGetCustomers",
+    "APIInsUpdCustomers",
+    "APILatestSyncCustomers",
+    "WebServiceQuery",
+    "JobQueueSync"
+  ]
+}

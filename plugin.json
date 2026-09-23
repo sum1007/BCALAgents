@@ -1,0 +1,6 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "d365bc-al-orchestrator",
+  "version": "1.0.0",
+  "description": "Dynamics 365 Business Central (AL) Copilot orchestrator: routing, planning gate, 4 custom agents, 8 AL skills, AppSource affix/ID rules, and an error library. Packaged for VS Code / GitHub Copilot."
+}

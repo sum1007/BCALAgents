@@ -1,0 +1,15 @@
+{
+  "domain": "function",
+  "resourceRoot": "BCALResources/Function",
+  "preferredAgent": "BC Resource Reuse Assistant",
+  "subFolders": [
+    "ItemTracing",
+    "Configuration",
+    "CustomerStatement",
+    "CustomerAging",
+    "Document",
+    "PostingEngine",
+    "MasterData",
+    "Utilities"
+  ]
+}
