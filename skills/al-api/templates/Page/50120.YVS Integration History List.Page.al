@@ -4,17 +4,17 @@
 // IMPORTANT: after generating a new detail table + list page, register a branch
 // in OpenDetailPage() below (see references/logging-architecture.md).
 
-page 50120 "VAS Integration History List"
+page 50120 "YVS Integration History List"
 {
     PageType = List;
-    SourceTable = "VAS Integration History";
-    Caption = 'VAS Integration History';
+    SourceTable = "YVS Integration History";
+    Caption = 'YVS Integration History';
     ApplicationArea = All;
     UsageCategory = History;
     Editable = false;
     InsertAllowed = false;
     ModifyAllowed = false;
-    SourceTableView = sorting("Entry No.") order(descending);
+    SourceTableView = sorting("API Key") order(descending);
 
     layout
     {
@@ -27,25 +27,19 @@ page 50120 "VAS Integration History List"
                     ApplicationArea = All;
                     ToolTip = 'Specifies the object id of the API that produced this entry.';
                 }
-                field("API Name"; Rec."API Name")
+                field("Batch Key"; Rec."Batch Key")
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Specifies the API object name.';
+                    ToolTip = 'Specifies the GUID grouping all records of this run.';
                 }
                 field(Direction; Rec.Direction)
                 {
                     ApplicationArea = All;
                     ToolTip = 'Specifies whether the call was inbound or outbound.';
                 }
-                field("Batch Key"; Rec."Batch Key")
-                {
-                    ApplicationArea = All;
-                    ToolTip = 'Specifies the GUID grouping all records of this run.';
-                }
                 field("Batch Status"; Rec."Batch Status")
                 {
                     ApplicationArea = All;
-                    StyleExpr = StatusStyle;
                     ToolTip = 'Specifies the result status of the call.';
                 }
                 field("Record Count"; Rec."Record Count")
@@ -81,12 +75,12 @@ page 50120 "VAS Integration History List"
     {
         area(Processing)
         {
-            action("VAS View Detail")
+            action("YVS View Detail")
             {
                 ApplicationArea = All;
                 Caption = 'View Detail';
                 ToolTip = 'Open the per-API detail log filtered by this batch key.';
-                Image = View;
+                //Image = View;
                 Promoted = true;
                 PromotedCategory = Process;
                 PromotedIsBig = true;
@@ -96,28 +90,55 @@ page 50120 "VAS Integration History List"
                     OpenDetailPage();
                 end;
             }
-            action("VAS View Request JSON")
+            action("YVS Generate Data")
             {
                 ApplicationArea = All;
-                Caption = 'View Request JSON';
-                ToolTip = 'Show the stored request payload.';
-                Image = Export;
+                Caption = 'Generate Data';
+                ToolTip = 'Generate data for the selected API key and batch.';
+                Promoted = true;
+                PromotedCategory = Process;
+                PromotedIsBig = true;
 
                 trigger OnAction()
+                var
+                    GenerateDataReport: Report "YVS Generate Data";
                 begin
-                    Message(Rec.GetRequestJson());
+                    GenerateDataReport.ParmRecordId(Rec.SystemId);
+                    GenerateDataReport.Run();
                 end;
             }
-            action("VAS View Response JSON")
+            action("YVS Reset Data")
             {
                 ApplicationArea = All;
-                Caption = 'View Response JSON';
-                ToolTip = 'Show the stored response payload.';
-                Image = Import;
+                Caption = 'Reset Data';
+                ToolTip = 'Reset data for the selected API key and batch.';
+                Promoted = true;
+                PromotedCategory = Process;
+                PromotedIsBig = true;
 
                 trigger OnAction()
+                var
+                    ResetDataReport: Report "YVS Reset Data";
                 begin
-                    Message(Rec.GetResponseJson());
+                    ResetDataReport.ParmRecordId(Rec.SystemId);
+                    ResetDataReport.Run();
+                end;
+            }
+            action("YVS Cancel Data")
+            {
+                ApplicationArea = All;
+                Caption = 'Cancel Data';
+                ToolTip = 'Cancel data for the selected API key and batch.';
+                Promoted = true;
+                PromotedCategory = Process;
+                PromotedIsBig = true;
+
+                trigger OnAction()
+                var
+                    CancelDataReport: Report "YVS Cancel Data";
+                begin
+                    CancelDataReport.ParmRecordId(Rec.SystemId);
+                    CancelDataReport.Run();
                 end;
             }
         }
@@ -131,18 +152,18 @@ page 50120 "VAS Integration History List"
     /// Add one branch per generated detail table.
     local procedure OpenDetailPage()
     var
-        CustLog: Record "VAS Api Customer Log";
-        NoDetailPageMsg: Label 'No detail page is registered for API %1.', Comment = '%1 = table object id';
+        CustLog: Record "YVS Upsert Customer Log";
+        NoDetailPageMsg: Label 'No detail page is registered for API %1.', Comment = '%1 = API name';
     begin
         case Rec."API Key" of
-            Page::"VAS Api Customers":
+            Rec."API Key"::"Upsert Customer":
                 begin
                     CustLog.SetRange("API Key", Rec."API Key");
                     CustLog.SetRange("Batch Key", Rec."Batch Key");
-                    Page.Run(Page::"VAS Api Customer Log List", CustLog);
+                    Page.Run(Page::"YVS Upsert Customer Log List", CustLog);
                 end;
             else
-                Message(NoDetailPageMsg, Rec."API Name");
+                Message(NoDetailPageMsg, Rec."API Key"::"Upsert Customer");
         end;
     end;
 }
