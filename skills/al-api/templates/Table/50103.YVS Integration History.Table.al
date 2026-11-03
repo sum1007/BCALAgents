@@ -3,32 +3,21 @@
 // API Key  = Integer object id of the API object (Page::"..." / Codeunit::"...").
 // Batch Key = Guid from CreateGuid(), shared with every detail row of the run.
 
-table 50103 "VAS Integration History"
+table 50103 "YVS Integration History"
 {
-    Caption = 'VAS Integration History';
+    Caption = 'YVS Integration History';
     DataClassification = SystemMetadata;
-    LookupPageId = "VAS Integration History List";
-    DrillDownPageId = "VAS Integration History List";
+    LookupPageId = "YVS Integration History List";
+    DrillDownPageId = "YVS Integration History List";
 
     fields
     {
-        field(1; "API Key"; Integer)
+        field(1; "API Key"; Enum "YVS API Key")
         {
             Caption = 'API Key';
             DataClassification = SystemMetadata;
-            TableRelation = AllObjWithCaption."Object ID";
-
-            trigger OnValidate()
-            begin
-                "API Name" := CopyStr(GetObjectName("API Key"), 1, 100);
-            end;
         }
-        field(2; "API Name"; Text[100])
-        {
-            Caption = 'API Name';
-            DataClassification = SystemMetadata;
-        }
-        field(3; Direction; Enum "VAS Integration Direction")
+        field(3; Direction; Enum "YVS Integration Direction")
         {
             Caption = 'Direction';
             DataClassification = SystemMetadata;
@@ -48,7 +37,7 @@ table 50103 "VAS Integration History"
             Caption = 'Response JSON';
             DataClassification = CustomerContent;
         }
-        field(7; "Batch Status"; Enum "VAS Integration Status")
+        field(7; "Batch Status"; Enum "YVS Integration Status")
         {
             Caption = 'Status';
             DataClassification = SystemMetadata;
@@ -66,6 +55,11 @@ table 50103 "VAS Integration History"
         field(10; "Transaction Date Time"; DateTime)
         {
             Caption = 'Transaction Date Time';
+            DataClassification = SystemMetadata;
+        }
+        field(11; Processing; Boolean)
+        {
+            Caption = 'Processing';
             DataClassification = SystemMetadata;
         }
     }

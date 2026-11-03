@@ -1,189 +1,121 @@
-# Integration Logging Architecture — reference
+# Integration Logging Architecture
 
-Detailed field tables, type mapping, and generation rules for the al-api logging layer.
-This document follows the current files in `templates/`. Summary lives in `SKILL.md`.
+This reference describes the current examples under `templates/`. Their `YVS` prefix, object IDs, and payloads are project-specific sample data. Reuse the applicable design only; resolve the destination app's prefix, object IDs, payload contract, and shared-object availability before generating AL.
 
----
+## Level 1 — shared integration history
 
-## Level 1 — `{PREFIX} Integration History` (shared header, one row per API call)
+Current example: `templates/Table/50103.YVS Integration History.Table.al`.
 
-| Field | Type | DataClassification | Purpose |
+| Field | Type | Classification | Purpose |
 |---|---|---|---|
-| Entry No. | Integer (AutoIncrement, PK) | SystemMetadata | Unique log id |
-| API Key | **Integer** | SystemMetadata | **Object id** of the API object. `TableRelation = AllObjWithCaption."Object ID"` |
-| API Name | Text[100] | SystemMetadata | Cached object caption |
-| Direction | Enum `{PREFIX} Integration Direction` | SystemMetadata | Inbound / Outbound |
-| Batch Key | **Guid** | SystemMetadata | Groups the whole run |
-| Request JSON | Blob | CustomerContent | Full request payload (secrets masked) |
-| Response JSON | Blob | CustomerContent | Full response payload |
-| Batch Status | Enum `{PREFIX} Integration Status` | SystemMetadata | Pending / Success / Error |
-| Batch Log | Text[2048] | SystemMetadata | Trimmed error or batch log text |
-| Record Count | Integer | SystemMetadata | Detail rows written |
-| Transaction Date Time | DateTime | SystemMetadata | Time the transaction was completed |
+| API Key | Enum `YVS API Key` | SystemMetadata | Integration identifier; **not** an AL object ID |
+| Direction | Enum `YVS Integration Direction` | SystemMetadata | Inbound or outbound |
+| Batch Key | Guid | SystemMetadata | Groups the history and detail records for one batch |
+| Request JSON | Blob | CustomerContent | Request payload after secret masking |
+| Response JSON | Blob | CustomerContent | Response payload |
+| Batch Status | Enum `YVS Integration Status` | SystemMetadata | Pending, Success, Failed, or Cancelled |
+| Batch Log | Text[2048] | SystemMetadata | Batch-level message |
+| Record Count | Integer | SystemMetadata | Number of detail records |
+| Transaction Date Time | DateTime | SystemMetadata | Transaction time |
+| Processing | Boolean | SystemMetadata | Processing flag used by the sample |
 
-**Keys**
-- `PK` → `"Entry No."` (clustered)
-- `Batch` → `"Batch Key"`
-- `ApiDate` → `"API Key", "Created At"` is declared by the current template, but
-    `Created At` is not currently declared as a field. Add that field or remove the
-    key before compiling the generated app.
+The table's primary key is `("Batch Key", "API Key")`. Its request/response Blob accessors are `SetRequestJson`, `GetRequestJson`, `SetResponseJson`, and `GetResponseJson`.
 
----
+## Level 2 — per-integration detail log
 
-## Level 2 — `{PREFIX} {ApiName} Log` (one table per API)
+Current examples:
 
-Naming: `{PREFIX} {ApiName} Log` — e.g. `VAS Misa Invoice Log`, `VAS Airwallex Payout Log`.
+- Inbound: `templates/Table/50106.YVS Upsert Customer Log.Table.al`
+- Outbound: `templates/Table/50107.YVS Sync Sales Invoice Log.Table.al`
 
-### Fixed fields (always present)
-| No. | Field | Type | DataClassification |
-|---|---|---|---|
-| 1 | API Key | **Integer** | SystemMetadata |
-| 2 | Batch Key | **Guid** | SystemMetadata |
-| 3 | Integration Key | Guid | SystemMetadata |
+Both use these fixed fields:
 
-### Payload fields
-Start at **field 10**, step 1. One field per request-payload property, typed, all carrying the `{PREFIX}` affix.
-
-### Result fields
-Start at **field 90**.
-| No. | Field | Type |
+| Field | Type | Classification |
 |---|---|---|
-| 90 | Status | Enum `{PREFIX} Integration Status` |
-| 91 | Error Message | Text[2048] |
+| API Key | Enum `YVS API Key` | SystemMetadata |
+| Batch Key | Guid | SystemMetadata |
+| Integration Key | Guid | SystemMetadata |
+| Integration Status | Enum `YVS Integration Status` | SystemMetadata |
+| Integration Log | Text[2048] | SystemMetadata |
 
-**Keys**
-- `PK` → `"API Key", "Batch Key", "Integration Key"` (clustered)
-- `Batch` → `"Batch Key"`
-- one business key over the main document field (e.g. `"VAS Invoice No."`)
+The primary key is `("API Key", "Batch Key", "Integration Key")`. The samples also show optional business/reference fields such as `Ref System Id` and `Line Number`; payload data is stored in typed columns with `CustomerContent` classification. Select field numbers from the app's field-ID allocation rules and avoid collisions. The examples do not implement a universal reserved field-number range.
 
----
+`Integration Key` identifies a detail record. The inbound example accepts it from the request and creates a GUID if missing; the outbound example creates a GUID for each logged invoice. Decide whether the key is supplied or generated from the real integration contract.
 
-## Field numbering rule (summary)
+## Enums and current status values
 
-```
-1  – 3    fixed log header  (API Key, Batch Key, Integration Key)
-10 – 89   payload fields    (typed, {PREFIX}-affixed)
-90 +      result fields     (Status, Error Message)
-```
+- `templates/Enum/50142.YVS Integration Direction.Enum.al`: `Inbound`, `Outbound`
+- `templates/Enum/50143.YVS Integration Status.Enum.al`: `Pending`, `Success`, `Failed`, `Cancelled`
+- `templates/Enum/50144.YVS API Key.Enum.al`: one value per configured integration
 
----
+Do not assume the status enum contains `Error`, or that the API key is an object ID. If an app requires a different API-key representation, update all dependent table fields, method parameters, assignments, lookups, and page routing consistently.
 
-## JSON → AL type mapping
+## Current engine procedures
 
-| JSON type | Example value | AL type |
-|---|---|---|
-| string (identifier/code) | `"INV-001"`, `"C0001"` | `Code[20]` |
-| string (free text) | `"ABC Company Ltd."` | `Text[100]` / `Text[250]` |
-| string (long) | description, note | `Text[2048]` |
-| number (money/qty) | `1500000.00` | `Decimal` |
-| number (integer) | `42` | `Integer` |
-| date | `"2026-09-08"` | `Date` |
-| date-time | `"2026-09-08T10:00:00Z"` | `DateTime` |
-| boolean | `true` | `Boolean` |
-| enum-like string | `"Draft" \| "Posted"` | `Enum` (extensible) or `Code[20]` |
-| nested object | `{ "address": {...} }` | flatten to `parentChild` fields |
-| array | `[ {...}, {...} ]` | separate child log table linked by API Key + Batch Key |
-
----
-
-## Worked example
-
-Request payload:
-```json
-{ "invoiceNo": "INV-001", "customerCode": "C0001", "customerName": "ABC Co.",
-  "invoiceDate": "2026-09-08", "amount": 1500000.00, "currency": "VND", "isVat": true }
-```
-
-Generated detail table fields:
-| No. | Field | Type |
-|---|---|---|
-| 1 | API Key | Integer |
-| 2 | Batch Key | Guid |
-| 3 | Integration Key | Guid |
-| 10 | VAS Invoice No. | Code[20] |
-| 11 | VAS Customer Code | Code[20] |
-| 12 | VAS Customer Name | Text[100] |
-| 13 | VAS Invoice Date | Date |
-| 14 | VAS Amount | Decimal |
-| 15 | VAS Currency | Code[10] |
-| 16 | VAS Is Vat | Boolean |
-| 90 | Status | Enum |
-| 91 | Error Message | Text[2048] |
-
-See `templates/ApiDetailLog.Table.al` for the generated AL. `Integration Key` is
-generated with `CreateGuid()` for each detail record and is also serialized by the
-outbound sample.
-
----
-
-## Execution contract
-
-```
-BatchKey := LogMgt.StartLog(ApiKey, Direction);                    // header, Pending
-    -> insert one typed detail row per record (API Key + Batch Key + Integration Key + payload fields)
-    -> call the partner API / process the inbound payload
-LogMgt.FinishLog(RequestJson, ResponseJson, Status, ErrorMsg, RecordCount);
-```
-
-Rules:
-- On failure, **still** call `FinishLog` with `Status = Error` and update the detail rows' status.
-- The current template does not persist HTTP status code, endpoint URL, or duration.
-- `Record Count` = number of detail rows inserted for that Batch Key.
-
----
-
-## Secret masking
-
-Before persisting any JSON, replace the values of:
-- `Authorization` (Bearer tokens)
-- `client_secret`, `clientSecret`
-- `api_key`, `apiKey`, `x-api-key`
-- `password`, `refresh_token`
-
-with `'***'`. The `MaskSecret()` procedure exists in
-`templates/IntegrationLogMgt.Codeunit.al`, but the current template still contains
-a TODO and returns the payload unchanged. Implement the replacements before using
-the template in production.
-Never store raw credentials; never log PII into telemetry.
-
----
-
-## Registering a new detail page
-
-After generating a detail table + list page, add a branch to `OpenDetailPage()` in the header list page:
+The shared codeunit is `templates/CodeUnit/50129.YVS Integration Engine.Codeunit.al`. Its main procedures are:
 
 ```al
-Database::"VAS Misa Invoice Log":
-    begin
-        MisaLog.SetRange("API Key", Rec."API Key");
-        MisaLog.SetRange("Batch Key", Rec."Batch Key");
-        Page.Run(Page::"VAS Misa Invoice Log List", MisaLog);
-    end;
+CreateIntegrationHistory(
+    ApiKey: Enum "YVS API Key";
+    BatchKey: Guid;
+    Direction: Enum "YVS Integration Direction";
+    TransDateTime: DateTime;
+    TotalRecords: Integer;
+    JsonRequest: Text;
+    JsonResponse: Text;
+    BatchLog: Text)
+
+UpdateIntegrationHistory(
+    ApiKey: Enum "YVS API Key";
+    BatchKey: Guid;
+    TransactionDateTime: DateTime;
+    RequestJson: Text;
+    ResponseJson: Text;
+    IntegrationStatus: Enum "YVS Integration Status";
+    IntegrationLog: Text;
+    RecordCount: Integer)
 ```
 
----
+The outbound example creates a GUID, inserts typed detail rows, creates the history row, calls the partner API, and updates the history result. The inbound example parses the request, inserts detail rows, and updates the history record. The templates do not define `StartLog` or `FinishLog`; do not generate callers for those methods.
 
-## Retention (optional)
+For both directions, persist batch and per-record outcomes on success and failure. Ensure request/response JSON is secret-masked before writing it to the history Blob fields.
 
-Log tables grow fast. If the project requires housekeeping, add a Job Queue codeunit that deletes
-`{PREFIX} Integration History` entries older than N days together with their detail rows
-(match on `Batch Key`). Keep error entries longer than success entries.
+## JSON-to-AL type guidance
 
-## Current template alignment notes
+Choose AL types using the actual schema, expected length, and BC semantics:
 
-The templates are not fully aligned with one another yet:
+| JSON value | Common AL type |
+|---|---|
+| Identifier or code | `Code[n]` |
+| Short or free-form text | `Text[n]` |
+| Long text | `Text[2048]` or an appropriate large-text representation |
+| Money or quantity | `Decimal` |
+| Integer | `Integer` |
+| Date | `Date` |
+| Date/time | `DateTime` |
+| Boolean | `Boolean` |
+| Stable finite choice | Extensible `Enum` or `Code[n]`, per contract |
+| Nested object | Flatten into clearly named typed fields or a related detail structure |
+| Array of records | Per-record detail rows, or a child table if nested arrays require it |
 
-- `IntegrationHistoryList.Page.al` reads `Status` and `Detail Table No.`, while
-  `IntegrationHistory.Table.al` currently defines `Batch Status` and no `Detail Table No.`.
-- `IntegrationHistory.Table.al` declares an `ApiDate` key using `Created At`, but
-  no `Created At` field exists.
-- `IntegrationLogMgt.Codeunit.al` defines `FinishLog` with five parameters. Some
-  error branches in `OutboundSync.Codeunit.al` pass six parameters by including an
-  HTTP status code.
-- `StartLog` currently accepts only `ApiKey` and `Direction`; detail table number,
-    endpoint URL, HTTP status code, and duration are not part of the current logging
-    contract.
+Preserve the external contract's property meaning and validation; do not mechanically infer storage length from one example.
 
-Resolve these template mismatches before generating a compilable app. Until then,
-the tables and codeunit above are the source of truth for the current field and
-procedure names.
+## Detail-page routing and permissions
+
+The shared history page is `templates/Page/50120.YVS Integration History List.Page.al`. Its `OpenDetailPage()` uses a case on the API-key enum and filters the selected detail table by API Key and Batch Key before opening its list page. Add one route for every generated detail list, including any outbound detail list.
+
+The detail-list examples include a navigation action back to the history list. Extend the permission set at `templates/50148.YVS-INTEGRATION.PermissionSet.al` to include every new API object, detail table, detail page, processing codeunit, and any required shared object. The sample permission set is not automatically complete for a different app or feature set.
+
+## Secrets and JSON logging
+
+The shared engine's `MaskSecret()` currently contains a TODO and returns the payload unchanged. This is **not safe to use as-is**. Implement and test masking for the actual partner schema (including authorization headers, client secrets, API keys, passwords, and access/refresh tokens) before persisting JSON. Never log raw credentials. Store credentials using the app's approved secure storage mechanism, such as Isolated Storage.
+
+## Current template caveats — resolve before materializing
+
+- The header and detail tables use `Enum "YVS API Key"`, but some page tooltips describe API Key as an object ID. The current schema does not store or validate an AL object ID.
+- The history table primary key is ordered as `("Batch Key", "API Key")`, while `UpdateIntegrationHistory` calls `History.Get(ApiKey, BatchKey)`. `Record.Get` arguments follow primary-key order; reconcile this mismatch before relying on the update path.
+- The inbound handler `50135.YVS Upsert Customer API.Codeunit.al` overwrites its `payload` parameter with a hard-coded sample JSON body. Remove that assignment before using the handler with real requests.
+- `MaskSecret()` is a no-op until implemented, so the current history engine can persist unmasked credentials.
+- The history list's detail-routing case currently handles Upsert Customer only, although an outbound sales-invoice detail page is also present. Add and verify all required routes.
+- The examples do not persist duration or HTTP status code in the history schema. Add those fields and wire them through the engine if required.
+- `CreateIntegrationHistory` and `UpdateIntegrationHistory` are distinct operations, not a transaction-safe Start/Finish abstraction. Check transaction boundaries and failure paths for the intended durability guarantees.

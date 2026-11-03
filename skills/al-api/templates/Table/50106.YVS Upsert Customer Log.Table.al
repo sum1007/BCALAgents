@@ -2,18 +2,17 @@
 // Generate one table per API. Re-prefix {PREFIX} and re-ID from the project ledger.
 // The codeunit writes one typed row for each item in the request data array.
 
-table 50106 "VAS InsUpCustomer Log"
+table 50106 "YVS UpSert Customer Log"
 {
-    Caption = 'VAS InsUpCustomer Log';
+    Caption = 'YVS UpSert Customer Log';
     DataClassification = CustomerContent;
 
     fields
     {
-        field(1; "API Key"; Integer)
+        field(1; "API Key"; Enum "YVS API Key")
         {
             Caption = 'API Key';
             DataClassification = SystemMetadata;
-            TableRelation = AllObjWithCaption."Object ID";
         }
         field(2; "Batch Key"; Guid)
         {
@@ -25,32 +24,22 @@ table 50106 "VAS InsUpCustomer Log"
             Caption = 'Integration Key';
             DataClassification = SystemMetadata;
         }
-        field(10; "VAS Request Batch Key"; Guid)
-        {
-            Caption = 'Request Batch Key';
-            DataClassification = SystemMetadata;
-        }
-        field(11; "VAS Line Number"; Integer)
-        {
-            Caption = 'Line Number';
-            DataClassification = SystemMetadata;
-        }
-        field(12; "VAS Customer Id"; Code[20])
+        field(12; "YVS Customer Id"; Code[20])
         {
             Caption = 'Customer Id';
             DataClassification = CustomerContent;
         }
-        field(13; "VAS Customer Name"; Text[100])
+        field(13; "YVS Customer Name"; Text[100])
         {
             Caption = 'Customer Name';
             DataClassification = CustomerContent;
         }
-        field(14; "VAS Legal Entity Id"; Code[20])
+        field(14; "YVS Legal Entity Id"; Code[20])
         {
             Caption = 'Legal Entity Id';
             DataClassification = CustomerContent;
         }
-        field(90; "Integration Status"; Enum "VAS Integration Status")
+        field(90; "Integration Status"; Enum "YVS Integration Status")
         {
             Caption = 'Integration Status';
             DataClassification = SystemMetadata;
@@ -66,6 +55,28 @@ table 50106 "VAS InsUpCustomer Log"
     {
         key(PK; "API Key", "Batch Key", "Integration Key") { Clustered = true; }
         key(Batch; "API Key", "Batch Key") { }
-        key(RequestLine; "VAS Request Batch Key", "VAS Line Number") { }
     }
+
+    procedure ValidateData()
+    var
+        IntegrationLog: Text;
+    begin
+        if "YVS Customer Id" = '' then
+            IntegrationLog := 'YVS Customer Id is missing.';
+
+        if IsNullGuid("Integration Key") then
+            IntegrationLog := 'Integration Key is missing.';
+
+        if IntegrationLog <> '' then begin
+            "Integration Status" := "Integration Status"::Failed;
+            "Integration Log" := IntegrationLog;
+        end
+    end;
+
+    procedure ExistIntegrationKey(APIKey: Enum "YVS API Key"; BatchKey: Guid; IntegrationKey: Guid): Boolean
+    var
+        Rec: Record "YVS UpSert Customer Log";
+    begin
+        exit(Rec.Get(APIKey, BatchKey, IntegrationKey));
+    end;
 }
