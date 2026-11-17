@@ -1,11 +1,9 @@
 ## App Analysis — Dynamics 365 Business Central (AL)
 
 Authoritative source of truth for {PREFIX}, {ObjectIdRange}, {AppName}, and the Agent Map.
-Populated by `/setup-project`. The orchestrator loads §Quick Reference ON DEMAND — never guess these values.
+Populated by `/setup-project` (or resolved via `app.json` fallback in plugin mode).
 
-> If any value below still shows a `<placeholder>` → run `/setup-project` before generating code.
-
-### Quick Reference (loaded on demand by orchestrator)
+### Quick Reference (loaded on demand)
 
 <table>
 <tr><th>Key</th><th>Value</th><th>Source of truth</th></tr>
@@ -19,58 +17,27 @@ Populated by `/setup-project`. The orchestrator loads §Quick Reference ON DEMAN
 <tr><td>{AppSourceCop}</td><td>enabled</td><td>AppSourceCop.json + ruleset</td></tr>
 </table>
 
-**HARD RULES derived from this table**
-- EVERY new object/field/control/action/enum value MUST carry the `{PREFIX}` affix (AppSourceCop mandatory).
-- New object IDs MUST fall inside `{ObjectIdRange}`. Pick the next free ID — NEVER hardcode an ID copied from a skill example.
-- NEVER copy `YVS` (or any example prefix) into generated code — always resolve `{PREFIX}` from this table.
-
-### ID Allocation Ledger (keep updated when objects are created)
+### ID Allocation Ledger (Report & ReportExtension separated)
 
 <table>
 <tr><th>Object type</th><th>Sub-range</th><th>Next free</th></tr>
 <tr><td>Table / TableExtension</td><td>50100–50109</td><td>50100</td></tr>
 <tr><td>Page / PageExtension</td><td>50110–50124</td><td>50110</td></tr>
 <tr><td>Codeunit</td><td>50125–50134</td><td>50125</td></tr>
-<tr><td>Report / ReportExtension</td><td>50135–50139</td><td>50135</td></tr>
+<tr><td>Report</td><td>50135–50137</td><td>50135</td></tr>
+<tr><td>ReportExtension</td><td>50138–50139</td><td>50138</td></tr>
 <tr><td>Enum / EnumExtension</td><td>50140–50144</td><td>50140</td></tr>
 <tr><td>Query / XMLport / Interface</td><td>50145–50147</td><td>50145</td></tr>
 <tr><td>PermissionSet / Entitlement</td><td>50148–50149</td><td>50148</td></tr>
 </table>
 
-### Object Naming Matrix
-
-<table>
-<tr><th>Scenario</th><th>Pattern</th><th>Example</th></tr>
-<tr><td>New object</td><td>{PREFIX} {Name}</td><td>"VAS Sales Invoice Header"</td></tr>
-<tr><td>New field / control / action</td><td>{PREFIX} {Name}</td><td>"VAS Tax Code"</td></tr>
-<tr><td>Table extension</td><td>"{PREFIX} {StdObject} Ext" extends {StdObject}</td><td>"VAS Customer Ext" extends Customer</td></tr>
-<tr><td>Page extension</td><td>"{PREFIX} {StdObject} Ext" extends "{StdObject}"</td><td>"VAS Item Card Ext" extends "Item Card"</td></tr>
-<tr><td>Enum extension</td><td>"{PREFIX} {StdEnum} Ext" extends "{StdEnum}"</td><td>"VAS Payment Method Ext"</td></tr>
-<tr><td>Event subscriber (Codeunit)</td><td>{PREFIX}{Target}Subscriber</td><td>VASSalesPostSubscriber</td></tr>
-<tr><td>Install / Upgrade codeunit</td><td>"{PREFIX} {AppName} Install"</td><td>"VAS Localization Install" (Subtype=Install)</td></tr>
-<tr><td>Permission set</td><td>{PREFIX}-{AREA}</td><td>VAS-ALL, VAS-READ</td></tr>
-</table>
-
-### File / Folder Layout (src tree)
-src/
-  Tables/            {PREFIX}{Name}.Table.al
-  TableExtensions/   {PREFIX}{Std}.TableExt.al
-  Pages/             {PREFIX}{Name}.Page.al
-  PageExtensions/    {PREFIX}{Std}.PageExt.al
-  Codeunits/         {PREFIX}{Name}.Codeunit.al
-  Reports/           {PREFIX}{Name}.Report.al  (+ .rdlc / .docx layout alongside)
-  Enums/             {PREFIX}{Name}.Enum.al
-  Queries/           {PREFIX}{Name}.Query.al
-  Permissions/       {PREFIX}{Name}.PermissionSet.al
-Translations/        {AppName}.g.xlf + per-language *.xlf
-
-### Agent Map (AUTHORITATIVE — keep in sync with instructions/copilot-instructions.md)
-
-Always use the **exact display name** for run_subagent(agentName=...). Never use the alias.
+### Agent Map (AUTHORITATIVE)
 
 <table>
 <tr><th>Alias (docs only)</th><th>agentName (exact — copy literally)</th><th>Responsibility</th></tr>
-<tr><td>@bc-basic-creation</td><td>BC AL Generation Assistant</td><td>Create/extend/modify any AL object from scratch.</td></tr>
+<tr><td>@bc-basic-creation</td><td>BC AL Generation Assistant</td><td>Create/extend/modify non-report AL objects from scratch.</td></tr>
+<tr><td>@bc-report-logic</td><td>BC Report Logic Assistant</td><td>Step 1 of Report: Create Report/ReportExtension (.al) and run Layout Generation Build.</td></tr>
+<tr><td>@bc-report-layout</td><td>BC Report Layout Assistant</td><td>Step 2 of Report: Populate and style compiler-generated layout (.docx, .rdl, .xlsx).</td></tr>
 <tr><td>@bc-build-verify</td><td>BC Build & Publish Assistant</td><td>Compile, app.json bump, publish to sandbox, fix CodeCop/AppSourceCop.</td></tr>
 <tr><td>@bc-resource-reuse</td><td>BC Resource Reuse Assistant</td><td>Materialize non-integration templates from BCALResources.</td></tr>
 <tr><td>@bc-integration-resource</td><td>BC Integration Generation Assistant</td><td>Materialize API Page/Query/web-service integration templates.</td></tr>

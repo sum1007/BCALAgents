@@ -1,16 +1,4 @@
-// TEMPLATE: Processing-only report — NO output, NO layout.
-// Re-prefix {PREFIX} and re-ID from the ID Allocation Ledger (Report sub-range) before materializing.
-//
-// Use this scenario when the report object exists only to let the user set filters/options on a
-// request page and then run an operation.
-//
-// HARD RULES for this scenario:
-//   - ProcessingOnly = true
-//   - NO rendering section
-//   - NO layout file on disk
-//   - NO DefaultRenderingLayout property
-//   - Heavy logic lives in a Codeunit; the report only collects input and drives the loop.
-
+// TEMPLATE: Processing-only report (ProcessingOnly = true, no rendering section, no layout file).
 report 50137 "VAS Update Customer Tax Codes"
 {
     Caption = 'VAS Update Customer Tax Codes';
@@ -32,7 +20,6 @@ report 50137 "VAS Update Customer Tax Codes"
 
             trigger OnAfterGetRecord()
             begin
-                // Delegate the real work to a codeunit - keep the report thin.
                 if TaxMgt.UpdateTaxCode(Customer, NewTaxCode, OverwriteExisting) then
                     ProcessedCount += 1;
             end;
@@ -61,7 +48,7 @@ report 50137 "VAS Update Customer Tax Codes"
                     {
                         ApplicationArea = All;
                         Caption = 'New Tax Code';
-                        ToolTip = 'Specifies the tax code to assign to the selected customers.';
+                        ToolTip = 'Specifies the tax code to assign to the filtered customers.';
                     }
                     field("VAS Overwrite Existing"; OverwriteExisting)
                     {

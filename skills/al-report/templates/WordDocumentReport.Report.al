@@ -1,15 +1,4 @@
-// TEMPLATE: Document report with a Word layout (the default choice for printed/PDF output).
-// Re-prefix {PREFIX} and re-ID from the ID Allocation Ledger (Report sub-range) before materializing.
-//
-// LAYOUT LIFECYCLE — do NOT skip:
-//   1. Keep the rendering section below.
-//   2. Build (Ctrl+Shift+B) -> the build generates VASCustomerStatement.docx with the Custom XML part.
-//   3. Open the generated .docx in Word, insert a table, drag the fields in, save.
-//   4. Ctrl+F5 to render.
-// NEVER hand-write the .docx. NEVER emit <Report>, <DataSets>, <Fields>, or <DataField>.
-//
-// Layout name is deterministic: {PREFIX}{Name}.Word  ->  "VASCustomerStatement.Word"
-
+// TEMPLATE: Document report with Word layout (complete dataset: company info, filters, totals, and labels block).
 report 50135 "VAS Customer Statement"
 {
     Caption = 'VAS Customer Statement';
@@ -22,8 +11,12 @@ report 50135 "VAS Customer Statement"
         dataitem(Customer; Customer)
         {
             RequestFilterFields = "No.", "Date Filter";
+            PrintOnlyIfDetail = true;
 
-            // Friendly, self-describing names - the layout author picks these in the Word data picker.
+            column(CompanyName; CompanyInfo.Name) { }
+            column(CompanyAddress; CompanyInfo.Address) { }
+            column(CompanyVATRegNo; CompanyInfo."VAT Registration No.") { }
+            column(CustomerFilter; CustomerFilterText) { }
             column(CustomerNo; "No.")
             {
                 IncludeCaption = true;
@@ -32,16 +25,17 @@ report 50135 "VAS Customer Statement"
             {
                 IncludeCaption = true;
             }
+            column(TotalAmountFormatted; Format(TotalAmountLCY, 0, '<Precision,2:2><Standard Format,0>')) { }
 
             dataitem(CustLedgerEntry; "Cust. Ledger Entry")
             {
-                // Set BOTH properties on the CHILD data item.
                 DataItemLinkReference = Customer;
-                DataItemLink = "Customer No." = field("No.");
+                DataItemLink = "Customer No." = field("No."), "Posting Date" = field("Date Filter");
+                DataItemTableView = sorting("Customer No.", "Posting Date");
 
-                column(PostingDate; "Posting Date")
+                column(PostingDate; Format("Posting Date"))
                 {
-                    IncludeCaption = true;
+                    Caption = 'Posting Date';
                 }
                 column(DocumentNo; "Document No.")
                 {
@@ -51,23 +45,38 @@ report 50135 "VAS Customer Statement"
                 {
                     IncludeCaption = true;
                 }
-                // Format in the DATASET, not in the layout.
-                column(AmountFormatted; Format(Amount, 0, '<Precision,2:2><Standard Format,0>'))
+                column(AmountFormatted; Format("Amount (LCY)", 0, '<Precision,2:2><Standard Format,0>'))
                 {
-                    Caption = 'Amount';
+                    Caption = 'Amount (LCY)';
                 }
+
+                trigger OnPreDataItem()
+                begin
+                    if not ShowDetails then
+                        CurrReport.Break();
+                end;
+
+                trigger OnAfterGetRecord()
+                begin
+                    TotalAmountLCY += "Amount (LCY)";
+                end;
             }
 
-            trigger OnPreDataItem()
+            trigger OnAfterGetRecord()
             begin
-                if ShowDetails then
-                    CurrReport.Break();
+                TotalAmountLCY := 0;
+                if not ShowDetails then begin
+                    CalcFields("Net Change (LCY)");
+                    TotalAmountLCY := "Net Change (LCY)";
+                end;
             end;
         }
     }
 
     requestpage
     {
+        SaveValues = true;
+
         layout
         {
             area(Content)
@@ -80,11 +89,19 @@ report 50135 "VAS Customer Statement"
                     {
                         ApplicationArea = All;
                         Caption = 'Show Details';
-                        ToolTip = 'Specifies whether individual ledger entries are included in the statement.';
+                        ToolTip = 'Specifies whether individual customer ledger entries are listed on the statement.';
                     }
                 }
             }
         }
+
+        trigger OnOpenPage()
+        begin
+            if not Initialized then begin
+                ShowDetails := true;
+                Initialized := true;
+            end;
+        end;
     }
 
     rendering
@@ -94,12 +111,29 @@ report 50135 "VAS Customer Statement"
             Type = Word;
             LayoutFile = './src/Reports/VASCustomerStatement.docx';
             Caption = 'Customer Statement (Word)';
-            Summary = 'Default Word layout for the customer statement.';
+            Summary = 'Standard A4 Word layout with company header, ledger entries, and total row.';
         }
     }
 
+    labels
+    {
+        StatementTitleLbl = 'CUSTOMER STATEMENT';
+        PageCaptionLbl = 'Page';
+        TotalCaptionLbl = 'Total (LCY)';
+        PreparedByLbl = 'Prepared By';
+        ApprovedByLbl = 'Approved By';
+    }
+
+    trigger OnPreReport()
+    begin
+        CompanyInfo.Get();
+        CustomerFilterText := Customer.GetFilters();
+    end;
+
     var
-        StatementTitleLbl: Label 'Customer Statement';
-        PageLbl: Label 'Page';
+        CompanyInfo: Record "Company Information";
+        CustomerFilterText: Text;
+        TotalAmountLCY: Decimal;
         ShowDetails: Boolean;
+        Initialized: Boolean;
 }

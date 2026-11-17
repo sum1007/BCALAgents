@@ -1,19 +1,4 @@
-// TEMPLATE: Analytical report with an Excel layout (data for online consumption / analysis).
-// Re-prefix {PREFIX} and re-ID from the ID Allocation Ledger (Report sub-range) before materializing.
-//
-// LAYOUT LIFECYCLE — do NOT skip:
-//   1. Keep the rendering section below.
-//   2. Build (Ctrl+Shift+B) -> the build generates VASSalesStatistics.xlsx.
-//   3. Open the generated .xlsx in Excel; build PivotTables / charts / formulas over the data sheet; save.
-//   4. Ctrl+F5 to render.
-// NEVER hand-write the .xlsx.
-//
-// Layout name is deterministic: {PREFIX}{Name}.Excel  ->  "VASSalesStatistics.Excel"
-//
-// PERFORMANCE NOTE: for heavy multi-table joins, prefer a Query object as the source.
-// Declare a global query variable, use Integer as the dataitem, and drive it from
-// OnPreDataItem + OnAfterGetRecord.
-
+// TEMPLATE: Analytical report with Excel layout (raw Decimal/Date columns for PivotTables + wired options).
 report 50136 "VAS Sales Statistics"
 {
     Caption = 'VAS Sales Statistics';
@@ -43,7 +28,7 @@ report 50136 "VAS Sales Statistics"
             dataitem(CustLedgerEntry; "Cust. Ledger Entry")
             {
                 DataItemLinkReference = Customer;
-                DataItemLink = "Customer No." = field("No.");
+                DataItemLink = "Customer No." = field("No."), "Posting Date" = field("Date Filter");
 
                 column(PostingDate; "Posting Date")
                 {
@@ -61,14 +46,23 @@ report 50136 "VAS Sales Statistics"
                 {
                     IncludeCaption = true;
                 }
+                column(DocumentNo; "Document No.")
+                {
+                    IncludeCaption = true;
+                }
                 column(SalesAmountLCY; "Sales (LCY)")
                 {
                     IncludeCaption = true;
                 }
 
+                trigger OnPreDataItem()
+                begin
+                    if not IncludeCreditMemos then
+                        SetFilter("Document Type", '<>%1', "Document Type"::"Credit Memo");
+                end;
+
                 trigger OnAfterGetRecord()
                 begin
-                    // Shape the data here so the Excel layout stays simple.
                     QuarterText := StrSubstNo(QuarterLbl, Round((Date2DMY("Posting Date", 2) + 2) / 3, 1, '<'));
                 end;
             }
@@ -77,6 +71,8 @@ report 50136 "VAS Sales Statistics"
 
     requestpage
     {
+        SaveValues = true;
+
         layout
         {
             area(Content)
@@ -89,7 +85,7 @@ report 50136 "VAS Sales Statistics"
                     {
                         ApplicationArea = All;
                         Caption = 'Include Credit Memos';
-                        ToolTip = 'Specifies whether credit memo entries are included in the statistics.';
+                        ToolTip = 'Specifies whether credit memo ledger entries are included in the exported dataset.';
                     }
                 }
             }
@@ -103,8 +99,13 @@ report 50136 "VAS Sales Statistics"
             Type = Excel;
             LayoutFile = './src/Reports/VASSalesStatistics.xlsx';
             Caption = 'Sales Statistics (Excel)';
-            Summary = 'Excel layout with pivot-ready sales data by customer and quarter.';
+            Summary = 'Pivot-ready sales dataset by customer, year, and quarter.';
         }
+    }
+
+    labels
+    {
+        ReportTitleLbl = 'Sales Statistics Analysis';
     }
 
     var
