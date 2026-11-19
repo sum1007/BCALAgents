@@ -28,7 +28,9 @@ permissionset 50148 "YVS-INTEGRATION"
 
         // ---------- API endpoints ----------
         codeunit "YVS Sync Sales Invoice API" = X,
-        report "YVS Generate Data" = X;
+        report "YVS Generate Data" = X,
+        report "YVS Cancel Data" = X,
+        report "YVS Reset Data" = X;
 }
 
 // Read-only variant for reviewers / support.

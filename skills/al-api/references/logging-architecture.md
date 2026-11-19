@@ -104,7 +104,15 @@ Preserve the external contract's property meaning and validation; do not mechani
 
 The shared history page is `templates/Page/50120.YVS Integration History List.Page.al`. Its `OpenDetailPage()` uses a case on the API-key enum and filters the selected detail table by API Key and Batch Key before opening its list page. Add one route for every generated detail list, including any outbound detail list.
 
-The detail-list examples include a navigation action back to the history list. Extend the permission set at `templates/50148.YVS-INTEGRATION.PermissionSet.al` to include every new API object, detail table, detail page, processing codeunit, and any required shared object. The sample permission set is not automatically complete for a different app or feature set.
+The detail-list examples include a navigation action back to the history list. Extend the permission set at `templates/50148.YVS-INTEGRATION.PermissionSet.al` to include every new API object, detail table, detail page, processing codeunit, and all three shared processing reports. The sample permission set is not automatically complete for a different app or feature set.
+
+## Shared processing reports
+
+The processing-only examples are `templates/Report/50101.YVS Generate Data.Report.al`, `50102.YVS Cancel Data.Report.al`, and `50103.YVS Reset Data.Report.al`. Keep one of each per app for both inbound and outbound integrations. Check for existing equivalents before creating them; when adding an API, extend the case on API Key in each report and delegate to that API's processing logic, scoped by API Key and Batch Key. Implement the operations for the actual direction and business contract, not by copying the Customer-specific behavior for every API.
+
+The shared history-list actions pass the selected record's `SystemId` via `ParmRecordId` before running the reports. Preserve this isolation and standalone request-page filters when adapting them. Include all three reports and the processing codeunits in the full permission set.
+
+Treat the samples as scaffolding, not a complete status model: the Generate report currently marks the batch successful if any row succeeds, and the sample Customer engine does not filter detail rows by status before Generate, Cancel, or Reset. Define eligible transitions, keep failed or successful rows from being incorrectly overwritten, and derive batch status from actual detail outcomes. In particular, retries and outbound calls must not repeat external side effects unintentionally. The samples only dispatch Upsert Customer; add all three routes and suitable per-API logic for outbound integrations too.
 
 ## Secrets and JSON logging
 

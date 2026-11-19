@@ -1,5 +1,5 @@
 // TEMPLATE: Processing-only report — selects an API key and cancels its pending log records in BC.
-// Generate ONE PER app; dispatch new API keys by adding a branch in ProcessSelectedApiKey().
+// Generate ONE PER app for inbound and outbound; add each API key to the OnAfterGetRecord case.
 
 report 50102 "YVS Cancel Data"
 {

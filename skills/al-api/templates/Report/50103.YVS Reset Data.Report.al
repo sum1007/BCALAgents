@@ -1,5 +1,5 @@
-// TEMPLATE: Processing-only report — selects an API key and upserts its pending log records into BC.
-// Generate ONE PER app; dispatch new API keys by adding a branch in ProcessSelectedApiKey().
+// TEMPLATE: Processing-only report — selects an API key and resets eligible log records for retry.
+// Generate ONE PER app for inbound and outbound; add each API key to the OnAfterGetRecord case.
 
 report 50103 "YVS Reset Data"
 {
