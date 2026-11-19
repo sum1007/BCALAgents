@@ -79,8 +79,10 @@ These are project-specific AL examples with `YVS` names, concrete IDs, and sampl
 ## Rules (HARD)
 
 - Check whether the Level 1 shared history table, enums, engine, list page, three processing-only reports, and permissions already exist before generating them. Reuse shared objects and create only missing ones. Generate a Level 2 detail table and list for **every new integration contract**.
+- Every integration also requires an **API-specific processing engine codeunit**. Find and extend an existing compatible engine, or create a new `.al` codeunit file from the inbound processor pattern when none exists. The shared Integration Engine and the API endpoint/handler do not replace this engine. For customer upsert on a fresh app, generate `{PREFIX} Upsert Customer Engine` using `templates/CodeUnit/50134.YVS Upsert Customer Engine.Codeunit.al` as the starting pattern, adapted to the real contract.
 - Every inbound **and** outbound integration must use the same three shared reports: Generate Data, Cancel Data, and Reset Data, one of each per app. Create them even when the request only says to create an API. Never create a separate set per API or per direction.
 - Add an explicit API-key dispatch branch in **each** report to the appropriate per-API processing codeunit. Implement Generate, Cancel, and Reset for that API and direction using its real contract and business rules; reuse existing compatible codeunits. Generate processes eligible data, Cancel cancels eligible data, and Reset returns eligible data to a retryable state. Do not assume outbound processing is a Customer upsert or invent a partner cancellation operation. If an operation's business semantics are unclear, ask before implementing it.
+- For the inbound upsert pattern, the handler validates and records the request and detail rows; the API-specific engine performs the business upsert from eligible rows through Generate. If the contract also requires immediate processing, invoke the same engine rather than duplicating upsert logic or processing the same rows twice.
 - Wire all three history-list actions to the shared reports for the selected history record; preserve any existing equivalent actions. Report filters and per-API processing must restrict work to the selected API key and batch, and standalone execution must respect the user's filters.
 - Update batch and detail statuses according to actual outcomes, including partial failures; do not mark a whole batch successful merely because one record succeeded. Operate only on eligible statuses, and do not silently overwrite successful rows or repeat external side effects. Preserve actionable failure details.
 - Detail table fields derive from the **actual request payload contract** — same names, correct AL types, `{PREFIX}` affix on all.
@@ -92,14 +94,33 @@ These are project-specific AL examples with `YVS` names, concrete IDs, and sampl
 - Generate a **List page for the header and every detail table**. Add a branch for each API key in the history page's `OpenDetailPage()` and filter the detail page by API Key + Batch Key.
 - Ship/extend a PermissionSet covering the API, all log objects, all three shared reports, and their processing codeunits.
 
+## Required processing objects — creation gate
+
+Before creating an integration, inventory the destination app against **each** row. An existing equivalent
+must actually implement the required role; a permission entry, template file, API handler, or planned
+object does not count as an implementation. On a fresh app create all four `.al` files; otherwise reuse
+and extend existing compatible objects and create each missing one. Allocate IDs and apply the app prefix.
+
+| Required object | Source pattern | Required implementation |
+|---|---|---|
+| Per-API processing engine codeunit | `templates/CodeUnit/50134.YVS Upsert Customer Engine.Codeunit.al` | API-specific Generate, Cancel, and Reset operations scoped to API Key and Batch Key |
+| Shared Generate Data report | `templates/Report/50101.YVS Generate Data.Report.al` | `ProcessingOnly`; dispatch this API key to its engine's Generate operation |
+| Shared Cancel Data report | `templates/Report/50102.YVS Cancel Data.Report.al` | `ProcessingOnly`; dispatch this API key to its engine's Cancel operation |
+| Shared Reset Data report | `templates/Report/50103.YVS Reset Data.Report.al` | `ProcessingOnly`; dispatch this API key to its engine's Reset operation |
+
+These are required for requests such as **"create API upsert customer"**, not only when the user explicitly
+asks for reports or an engine. The report patterns currently contain Customer-specific routing and known
+status limitations; adapt and correct them as described in `references/logging-architecture.md`.
+When business rules are missing, ask for the rules rather than claiming completion or inventing side effects.
+
 ## Steps
 
 1. Resolve `{PREFIX}` and next free IDs for all required object types.
-2. Check for an existing Level 1 layer and the three shared processing reports; add only missing shared objects.
+2. Inventory the Level 1 layer and all four processing objects against the creation gate; create missing `.al` files and reuse compatible existing objects.
 3. Read the actual request/response contract and generate a per-API detail table with typed payload fields.
 4. Generate its detail List page; register the API key in the shared history page's routing case.
 5. Implement inbound or outbound execution using the existing history engine's actual methods; persist batch and detail results for success and failure.
-6. Add this API's dispatch to Generate, Cancel, and Reset; implement its direction-specific operations, and wire the history-list actions to the shared reports.
+6. Implement all three operations in the per-API engine; add this API's dispatch to Generate, Cancel, and Reset and wire the history-list actions to the shared reports.
 7. Add all API, logging, processing codeunit, and shared report objects to the permission set.
 8. Update the ID Ledger and emit the Handoff Contract.
 
@@ -110,6 +131,7 @@ These are project-specific AL examples with `YVS` names, concrete IDs, and sampl
 - Batch Key is the same GUID on the history row and every detail row; detail fields reflect the real payload contract.
 - Header and per-API list pages exist; every routing branch filters by the correct API key and batch key.
 - Exactly one shared Generate, Cancel, and Reset report exists per app, reused for both directions; all three dispatch the new API key to the appropriate per-API logic.
+- Inspect the actual per-API engine and each report file, not just PermissionSet references or the handoff list. If any required file or route is missing, fix it before handoff; if blocked, identify the missing object and blocker instead of reporting success. Include changed files and paths of reused processing objects in the handoff.
 - History actions invoke the correct report for the selected record. Verify batch isolation, eligible status transitions, partial failures, retries, and outbound side effects against the actual contract.
 - JSON is stored on the header only after secrets are masked. PermissionSet covers the API and all log objects.
 - IDs are in range, project prefix is used, and no sample names, payloads, or `YVS` identifiers remain.

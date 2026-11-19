@@ -8,7 +8,7 @@ Plugin-level orchestrator instructions for the **d365bc-al-orchestrator** Agent 
 | -------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | Create / extend / modify Report or ReportExtension (`.al` + Layout Build)                          | **BC Report Logic Assistant**           |
 | Design / populate / style Report Layout (`.docx`, `.rdl`, `.xlsx`)                                 | **BC Report Layout Assistant**          |
-| Create / extend / modify non-report AL objects (Table, Page, Codeunit, Enum, Query, PermissionSet) | **BC AL Generation Assistant**          |
+| Create / extend / modify non-integration, non-report AL objects                                   | **BC AL Generation Assistant**          |
 | Materialize any non-integration template                                                           | **BC Resource Reuse Assistant**         |
 | Create or change an inbound/outbound integration, or materialize an Integration template          | **BC Integration Generation Assistant** |
 | Build / publish / fix errors / fix AppSource warnings                                              | **BC Build & Publish Assistant**        |

@@ -6,9 +6,10 @@ Defines the end-to-end flow the orchestrator drives and the gates between phases
 ```
 User request
    ├─ Planning Gate ──(≥2 verbs OR ≥2 AL object types OR sequencing OR multi-subagent)──► call plan FIRST
-   ├─ Routing (Binary Branch)
-   │     Template name / "from template" ─► Resource branch (BC Resource Reuse | BC Integration Generation)
-   │     else                             ─► Basic branch    (BC AL Generation Assistant)
+   ├─ Routing
+   │     Inbound/outbound integration request, with or without a template name ─► BC Integration Generation
+   │     Other template name / "from template" ─► BC Resource Reuse
+   │     Other creation request ─► BC AL Generation Assistant (or report pipeline for reports)
    ├─ Creation sub-agent runs → emits Handoff Contract
    ├─ Post-Creation Verification (orchestrator-owned, READ-ONLY gate)
    └─ BC Build & Publish Assistant → compile + publish + cop fixes
@@ -31,6 +32,7 @@ Checklist (ALL must pass):
 5. **No scaffold leftovers** — grep `MyTable`/`MyPage`/`MyField`/`PLACEHOLDER` → ZERO matches.
 6. **Captions/ToolTips** — new controls have `Caption` (+ `ToolTip` on Pages).
 7. **PermissionSet coverage** — functional object created → a PermissionSet references it or is in changedFiles.
+8. **Integration processing completeness** — for an integration, inspect the actual per-API engine and the shared Generate, Cancel, and Reset processing-only report files, including reused paths reported in `processingObjects`. Verify each report dispatches this API key to its engine, history actions are wired, and the engine and reports are permission-covered. A permission reference alone does not establish that an object exists. If any required file or wiring is missing, return to the integration agent; do not hand off as complete.
 
 Result: ALL pass → Phase 3. ANY fail → route back to the creation sub-agent with the failing item(s). Do NOT fix from the orchestrator.
 
