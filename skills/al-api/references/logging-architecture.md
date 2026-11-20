@@ -80,6 +80,48 @@ The outbound example creates a GUID, inserts typed detail rows, creates the hist
 
 For both directions, persist batch and per-record outcomes on success and failure. Ensure request/response JSON is secret-masked before writing it to the history Blob fields.
 
+## Outbound setup and caller architecture
+
+Read and preserve the roles and call flow in these examples when creating an outbound integration; use
+the app prefix and allocated IDs, and adapt payloads and business data to the partner contract:
+
+1. `templates/Table/50107.YVS Sync Sales Invoice Log.Table.al` is the per-API typed detail log; the sync
+   codeunit initializes rows from source records and uses API Key, Batch Key and Integration Key.
+2. `templates/CodeUnit/50131.YVS Sync Sales Invoice API.Codeunit.al` is the per-API sync codeunit:
+   prepare detail/history, build request JSON, call the shared caller service, and record results.
+3. `templates/Table/50108.YVS External App Definition.Table.al` is shared configuration keyed by API Key.
+   `templates/Page/50123.YVS Ext. App Definition List.Page.al` and `50125.YVS Ext. App Definition Card.Page.al`
+   provide administration. Reuse shared setup for all outbound APIs; maintain safe credential entry.
+4. `templates/CodeUnit/50132.YVS API Caller Service.Codeunit.al` resolves the selected API's setup and
+   chooses authentication. `templates/CodeUnit/50133.YVS API Caller Engine.Codeunit.al` obtains tokens
+   when required and sends HTTP requests using the configured URL, method, headers and timeout.
+5. Connect the shared processing reports to a per-API engine, which invokes the sync codeunit for the
+   selected batch without duplicating logs or sending successful records again. Preserve the separate
+   sync and shared caller roles even if signatures need adjustment.
+
+Create missing objects, reuse compatible existing ones, and include setup table data, setup pages, sync,
+caller service and caller engine in permissions. Do not copy template defects just to preserve textual
+similarity; make the smallest changes needed for the real contract, safety and correct execution:
+
+- The sample setup table stores client secret, token and password as masked `Text` fields. `Masked` is
+  not secure storage. Store secrets in the app's approved secure storage, and adjust setup pages and
+  caller access accordingly; never log tokens, credentials or sensitive response bodies.
+- The caller service handles only Client Credentials and otherwise can return without a call. Validate
+  missing/inactive setup and required configuration, implement the partner's configured authentication
+  mode, and explicitly fail for unsupported modes. The setup Card's visibility logic also needs review.
+- The caller engine formats the OAuth enum as `grant_type`, builds a JSON token request, adds an
+  Authorization header even when empty, and does not check `HttpClient.Send`'s Boolean result. Adapt the
+  token request and headers to the actual provider, validate the token response, handle transport errors,
+  and distinguish HTTP failure from a successful empty response. Validate timeout semantics and support
+  dependencies such as `Dictionary Wrapper` against the target runtime.
+- The setup and engine use the platform `Http Request Type` enum, not the sample `YVS HTTP Method`.
+  Reuse the actual compatible type, or update setup, caller and engine consistently if changing it.
+- The sample sync treats nonempty response text as success, returns `true` unconditionally, does not call
+  its `UpdateLog` helper, and reuses a detail `JsonObject` for the request envelope. Correct response
+  classification, propagate failure, persist batch and detail outcomes, and build a separate envelope.
+  Treat partial results and transaction boundaries according to the partner contract; do not mark a
+  failed or unknown result successful.
+
 ## JSON-to-AL type guidance
 
 Choose AL types using the actual schema, expected length, and BC semantics:

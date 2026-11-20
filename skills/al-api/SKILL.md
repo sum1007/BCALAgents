@@ -1,6 +1,6 @@
 ---
 name: al-api
-description: Builds Business Central API pages, API queries, and inbound/outbound integrations in AL. Every integration (e.g. "create api upsert customer") MUST also create or extend a per-API engine codeunit and the three shared ProcessingOnly reports Generate Data, Cancel Data, Reset Data, plus shared history and per-API typed detail logs. Use when exposing OData endpoints or calling partner APIs such as MISA, Airwallex, or Dynamicweb.
+description: Builds Business Central API pages, API queries, and inbound/outbound integrations in AL. Every integration requires a per-API engine and shared processing reports and logs. Outbound integrations also require the template-based external app setup, sync codeunit, API caller service, and API caller engine.
 license: Proprietary
 metadata:
   author: Votiva
@@ -43,6 +43,29 @@ report pipeline. **Never** satisfy the build by deleting or commenting out the r
 references, or dispatch branches. If the compiler says a report or engine does not exist, **create it**.
 Do not report the task as complete while any row is missing; list each created/reused object (rows 1–12)
 in the final answer or handoff.
+
+### Additional mandatory output for outbound integrations
+
+For **every outbound API**, also inventory the following; create missing `.al` files or reuse and extend
+compatible existing objects. A permission reference alone is not an implementation. The sample names
+describe roles, not names or IDs to copy into the destination app.
+
+| Scope | Required object and role | Template |
+|---|---|---|
+| Per API | Typed sync detail log, one row per business record | `templates/Table/50107.YVS Sync Sales Invoice Log.Table.al` |
+| Per API | Sync API codeunit: select data, write detail/history, build payload and invoke caller | `templates/CodeUnit/50131.YVS Sync Sales Invoice API.Codeunit.al` |
+| Shared | External App Definition table keyed by API Key, with endpoint, method, authentication configuration, active flag and timeout | `templates/Table/50108.YVS External App Definition.Table.al` |
+| Shared | External App Definition List and Card pages to maintain setup safely | `templates/Page/50123.YVS Ext. App Definition List.Page.al`, `templates/Page/50125.YVS Ext. App Definition Card.Page.al` |
+| Shared | API Caller Service: resolve and validate setup for API Key; choose configured authentication; call the engine | `templates/CodeUnit/50132.YVS API Caller Service.Codeunit.al` |
+| Shared | API Caller Engine: obtain access token when needed and send HTTP request using setup | `templates/CodeUnit/50133.YVS API Caller Engine.Codeunit.al` |
+| Shared | OAuth enum and actual HTTP method type used by setup and engine | `templates/Enum/50146.YVS OAuth Type.Enum.al`; check the actual `Http Request Type` type before using `templates/Enum/50145.YVS HTTP Method.Enum.al` |
+
+Preserve this template layering and call flow: report -> per-API processing engine -> per-API sync API
+-> shared API Caller Service -> shared API Caller Engine -> third party. The service reads the shared
+setup by the API key; the sync codeunit logs batch and detail outcomes. Adapt method signatures where
+necessary so an existing selected batch is processed once, without creating a duplicate batch or
+re-sending successful records. Never bypass these components with a hard-coded URL or a direct HTTP
+call from the sync codeunit. Follow `references/logging-architecture.md` for required template fixes.
 
 ### When to use
 
@@ -87,10 +110,11 @@ in the final answer or handoff.
 | Inbound typed detail table and list | `templates/Table/50106.YVS Upsert Customer Log.Table.al`, `templates/Page/50122.YVS Upsert Customer Log List.Page.al` |
 | Outbound sync and typed detail table | `templates/CodeUnit/50131.YVS Sync Sales Invoice API.Codeunit.al`, `templates/Table/50107.YVS Sync Sales Invoice Log.Table.al` |
 | Outbound detail list | `templates/Page/50124.YVS Sales Invoice Log List.Page.al` |
+| Outbound setup table and pages | `templates/Table/50108.YVS External App Definition.Table.al`, `templates/Page/50123.YVS Ext. App Definition List.Page.al`, `templates/Page/50125.YVS Ext. App Definition Card.Page.al` |
 | HTTP/OAuth caller | `templates/CodeUnit/50132.YVS API Caller Service.Codeunit.al`, `50133.YVS API Caller Engine.Codeunit.al` |
 | Permission sets for integration objects | `templates/50148.YVS-INTEGRATION.PermissionSet.al` |
 
-These are project-specific AL examples with `YVS` names, concrete IDs, and sample business contracts. Copy their **applicable structure only**: allocate IDs from the current project's ledger, apply its prefix, replace sample payload/business fields, and update every reference in pages, reports, codeunits, enums, and permission sets. The three processing reports are mandatory shared integration objects, not optional non-API examples.
+These are project-specific AL examples with `YVS` names, concrete IDs, and sample business contracts. Use the template objects and their responsibilities as the starting point; allocate IDs from the current project's ledger, apply its prefix, replace sample payload/business fields, and update all references. Keep their architecture and existing compatible behavior; change only what the actual contract, secure credential storage, correctness, compilation, and required report integration demand. Do not copy known template defects or omit the required outbound components.
 
 ---
 
@@ -111,7 +135,7 @@ These are project-specific AL examples with `YVS` names, concrete IDs, and sampl
 ## Rules (HARD)
 
 - Check whether the Level 1 shared history table, enums, engine, list page, three processing-only reports, and permissions already exist before generating them. Reuse shared objects and create only missing ones. Generate a Level 2 detail table and list for **every new integration contract**.
-- Every integration also requires an **API-specific processing engine codeunit**. Find and extend an existing compatible engine, or create a new `.al` codeunit file from the inbound processor pattern when none exists. The shared Integration Engine and the API endpoint/handler do not replace this engine. For customer upsert on a fresh app, generate `{PREFIX} Upsert Customer Engine` using `templates/CodeUnit/50134.YVS Upsert Customer Engine.Codeunit.al` as the starting pattern, adapted to the real contract.
+- Every integration also requires an **API-specific processing engine codeunit**. Find and extend an existing compatible engine, or create a new `.al` codeunit using the processor pattern for report dispatch, adapted to the integration's direction. The shared Integration Engine, outbound sync codeunit, and API endpoint/handler do not replace this engine. For customer upsert on a fresh app, use `templates/CodeUnit/50134.YVS Upsert Customer Engine.Codeunit.al` as the starting pattern.
 - Every inbound **and** outbound integration must use the same three shared reports: Generate Data, Cancel Data, and Reset Data, one of each per app. Create them even when the request only says to create an API. Never create a separate set per API or per direction.
 - Add an explicit API-key dispatch branch in **each** report to the appropriate per-API processing codeunit. Implement Generate, Cancel, and Reset for that API and direction using its real contract and business rules; reuse existing compatible codeunits. Generate processes eligible data, Cancel cancels eligible data, and Reset returns eligible data to a retryable state. Do not assume outbound processing is a Customer upsert or invent a partner cancellation operation. If an operation's business semantics are unclear, ask before implementing it.
 - For the inbound upsert pattern, the handler validates and records the request and detail rows; the API-specific engine performs the business upsert from eligible rows through Generate. If the contract also requires immediate processing, invoke the same engine rather than duplicating upsert logic or processing the same rows twice.
@@ -122,6 +146,7 @@ These are project-specific AL examples with `YVS` names, concrete IDs, and sampl
 - Persist the history and detail rows on both success and failure; record per-record and batch failures using the project's status enum.
 - Mask `Authorization`, `client_secret`, `api_key`, passwords, and tokens before storing JSON. The sample `MaskSecret` currently returns the input unchanged; implement and verify masking before using it.
 - Never persist raw credentials. Use the project's secure secret-storage pattern (such as Isolated Storage) for credentials.
+- For outbound, the external setup stores non-secret configuration and secure references; retrieve secrets from secure storage. Do not copy the template's masked Text secret/token/password fields as storage. Implement the configured auth mode from the real partner contract, and explicitly reject unsupported modes or missing/inactive setup.
 - `DataClassification`: `SystemMetadata` for technical fields, `CustomerContent` for payload data.
 - Generate a **List page for the header and every detail table**. Add a branch for each API key in the history page's `OpenDetailPage()` and filter the detail page by API Key + Batch Key.
 - Ship/extend a PermissionSet covering the API, all log objects, all three shared reports, and their processing codeunits.
@@ -149,7 +174,7 @@ When business rules are missing, ask for the rules rather than claiming completi
 
 1. Resolve `{PREFIX}` and next free IDs for all required object types.
 2. Inventory the Level 1 layer and all four processing objects against the creation gate; create missing `.al` files and reuse compatible existing objects.
-3. Read the actual request/response contract and generate a per-API detail table with typed payload fields.
+3. Read the actual request/response contract and generate a per-API detail table with typed payload fields. For outbound, read and inventory every object in the outbound table above; create missing shared setup, setup pages, caller service and caller engine, plus the per-API sync codeunit.
 4. Generate its detail List page; register the API key in the shared history page's routing case.
 5. Implement inbound or outbound execution using the existing history engine's actual methods; persist batch and detail results for success and failure.
 6. Implement all three operations in the per-API engine; add this API's dispatch to Generate, Cancel, and Reset and wire the history-list actions to the shared reports.
@@ -165,5 +190,6 @@ When business rules are missing, ask for the rules rather than claiming completi
 - Exactly one shared Generate, Cancel, and Reset report exists per app, reused for both directions; all three dispatch the new API key to the appropriate per-API logic.
 - Inspect the actual per-API engine and each report file, not just PermissionSet references or the handoff list. If any required file or route is missing, fix it before handoff; if blocked, identify the missing object and blocker instead of reporting success. Include changed files and paths of reused processing objects in the handoff.
 - History actions invoke the correct report for the selected record. Verify batch isolation, eligible status transitions, partial failures, retries, and outbound side effects against the actual contract.
+- For outbound, verify the actual files and call chain from the processing engine through the per-API sync codeunit, shared caller service, setup lookup and caller engine. Verify secure setup, permissions, configured authentication, transport and HTTP failures, empty successful responses, and persisted batch/detail results. List created and reused outbound objects in the handoff; report blockers rather than claiming completion.
 - JSON is stored on the header only after secrets are masked. PermissionSet covers the API and all log objects.
 - IDs are in range, project prefix is used, and no sample names, payloads, or `YVS` identifiers remain.

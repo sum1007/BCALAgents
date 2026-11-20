@@ -33,6 +33,7 @@ Checklist (ALL must pass):
 6. **Captions/ToolTips** — new controls have `Caption` (+ `ToolTip` on Pages).
 7. **PermissionSet coverage** — functional object created → a PermissionSet references it or is in changedFiles.
 8. **Integration processing completeness** — for an integration, inspect the actual per-API engine and the shared Generate, Cancel, and Reset processing-only report files, including reused paths reported in `processingObjects`. Verify each report dispatches this API key to its engine, history actions are wired, and the engine and reports are permission-covered. A permission reference alone does not establish that an object exists. If any required file or wiring is missing, return to the integration agent; do not hand off as complete.
+9. **Outbound completeness** — inspect the actual files in `outboundObjects`: per-API sync log and sync codeunit, shared External App Definition table and setup List/Card, API Caller Service and API Caller Engine. Verify the per-API engine -> sync -> caller service -> caller engine flow, API-key setup lookup, secure credentials, result logging and permissions. Missing files or wiring fail the gate, including reused objects.
 
 Result: ALL pass → Phase 3. ANY fail → route back to the creation sub-agent with the failing item(s). Do NOT fix from the orchestrator.
 
