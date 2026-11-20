@@ -21,8 +21,18 @@ correct prefixing, IDs, API metadata, and secure auth wiring. Run end-to-end and
 Do NOT compile or touch app.json.
 
 ### Skill to load
-Load skill **al-api** before generating. Read its required-object checklist and the four processing
-templates from the skill's own `templates/` directory, even when using a separate resource template.
+Load skill **al-api** before generating. Its **⛔ MANDATORY OUTPUT** table (12 rows) is the definition of
+done for every integration request, including one-line prompts such as "create api upsert customer".
+Read the four processing templates (per-API engine + Generate/Cancel/Reset reports) from the skill's own
+`templates/` directory, even when using a separate resource template.
+
+### Definition of done (HARD)
+- The app contains a per-API `{PREFIX} {ApiName} Engine` codeunit and one shared `{PREFIX} Generate Data`,
+  `{PREFIX} Cancel Data`, `{PREFIX} Reset Data` ProcessingOnly report, each dispatching this API key.
+- The history list page has the Generate/Cancel/Reset actions wired to those reports.
+- Never delete or comment out report actions, report variables, or dispatch branches to make the app
+  compile; create the missing object instead.
+- If any of these is missing, the task is NOT complete — create it before answering.
 
 ### When routed here
 - Prompt names an integration template OR any template listed under `config/integration.config.json`

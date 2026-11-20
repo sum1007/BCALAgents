@@ -22,7 +22,7 @@ When the user asks to create or modify a Report or ReportExtension:
 3. **Step 2**: If the report has a layout (not `ProcessingOnly`), call `BC Report Layout Assistant` (`@bc-report-layout`) to populate the table, headers, totals, and field bindings inside the compiler-generated layout file.
 4. **Step 3**: Run Post-Creation Verification (read-only) and call `BC Build & Publish Assistant` (`@bc-build-verify`).
 
-For an integration request, the integration agent also creates or extends its shared processing-only Generate, Cancel, and Reset reports as required by **al-api**. These supporting reports have no layout and are part of the integration handoff; do not route the integration request to the report pipeline merely because those reports are required.
+For an integration request, the integration agent also creates or extends its shared processing-only Generate, Cancel, and Reset reports as required by **al-api**. These supporting reports have no layout and are part of the integration handoff; do not route the integration request to the report pipeline merely because those reports are required. If the integration is implemented directly in the main chat instead of the sub-agent, still load **al-api** and satisfy its MANDATORY OUTPUT table (per-API engine + the three reports) before answering.
 
 ### Agent Map (AUTHORITATIVE — use exact display name for `run_subagent`)
 

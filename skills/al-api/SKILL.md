@@ -1,16 +1,48 @@
 ---
 name: al-api
-description: Builds Business Central API pages, API queries, and inbound/outbound integrations in AL. Integration examples use shared history and Generate, Cancel, Reset processing reports, plus per-API typed detail logs. Use when exposing OData endpoints or calling partner APIs such as MISA, Airwallex, or Dynamicweb.
+description: Builds Business Central API pages, API queries, and inbound/outbound integrations in AL. Every integration (e.g. "create api upsert customer") MUST also create or extend a per-API engine codeunit and the three shared ProcessingOnly reports Generate Data, Cancel Data, Reset Data, plus shared history and per-API typed detail logs. Use when exposing OData endpoints or calling partner APIs such as MISA, Airwallex, or Dynamicweb.
 license: Proprietary
 metadata:
   author: Votiva
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 ## SKILL: al-api — API Page / API Query, Integration & Per-API Logging (Dynamics 365 BC, AL)
 
 > Owned by **BC Integration Generation Assistant** (@bc-integration-resource).
 > Resolve `{PREFIX}` and object IDs from app-analysis §Quick Reference. NEVER guess. Template files use the sample prefix `YVS` and fixed IDs: treat them as examples, never copy them into a project. NEVER hardcode secrets.
+
+## ⛔ MANDATORY OUTPUT — read first, applies whoever runs this skill
+
+This applies whether the work is done by the integration agent or directly in the main chat. A request
+that only names the API (for example **"create api upsert customer"** or **"create api upsert vendor"**)
+is still a full integration. Before finishing, the destination app MUST contain each object below,
+either reused (existing and compatible) or newly created as an `.al` file:
+
+| # | Object | Scope | Template |
+|---|---|---|---|
+| 1 | API Key, Integration Direction, Integration Status enums (add this API's key value) | shared | `templates/Enum/50142…50144` |
+| 2 | Integration History table | shared | `templates/Table/50103.YVS Integration History.Table.al` |
+| 3 | Integration Engine codeunit | shared | `templates/CodeUnit/50129.YVS Integration Engine.Codeunit.al` |
+| 4 | Integration History List page with **View Detail, Generate Data, Cancel Data, Reset Data** actions | shared | `templates/Page/50120.YVS Integration History List.Page.al` |
+| 5 | **Generate Data** report (`ProcessingOnly = true`) | shared, one per app | `templates/Report/50101.YVS Generate Data.Report.al` |
+| 6 | **Cancel Data** report (`ProcessingOnly = true`) | shared, one per app | `templates/Report/50102.YVS Cancel Data.Report.al` |
+| 7 | **Reset Data** report (`ProcessingOnly = true`) | shared, one per app | `templates/Report/50103.YVS Reset Data.Report.al` |
+| 8 | `{PREFIX} {ApiName} Log` detail table | per API | `templates/Table/50106…` (inbound) / `50107…` (outbound) |
+| 9 | `{PREFIX} {ApiName} Log List` page | per API | `templates/Page/50122…` / `50124…` |
+| 10 | API endpoint/handler codeunit (inbound) or sync codeunit (outbound) | per API | `templates/CodeUnit/50135…` / `50131…` |
+| 11 | `{PREFIX} {ApiName} Engine` codeunit with `GenerateData`, `CancelData`, `ResetData` | per API | `templates/CodeUnit/50134.YVS Upsert Customer Engine.Codeunit.al` |
+| 12 | PermissionSet covering all of the above, including the three reports | shared | `templates/50148.YVS-INTEGRATION.PermissionSet.al` |
+
+Wiring that MUST exist: each of reports 5–7 has a `case "API Key"` branch for this API calling engine 11;
+page 4's three actions run reports 5–7 via `ParmRecordId(Rec.SystemId)`; page 4's `OpenDetailPage()` routes
+this API key to page 9.
+
+These reports are integration objects created by this skill, not layout reports: do not route them to the
+report pipeline. **Never** satisfy the build by deleting or commenting out the report actions, report
+references, or dispatch branches. If the compiler says a report or engine does not exist, **create it**.
+Do not report the task as complete while any row is missing; list each created/reused object (rows 1–12)
+in the final answer or handoff.
 
 ### When to use
 
